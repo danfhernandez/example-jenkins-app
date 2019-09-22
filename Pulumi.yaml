@@ -1,0 +1,3 @@
+name: example-jenkins-app
+runtime: nodejs
+description: app that uses a jenkins pipeline to be managed
