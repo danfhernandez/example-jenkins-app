@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage ("Install Pulumi") {
+            steps {
+                sh "curl -fsSL https://get.pulumi.com | sh"
+                sh "$HOME/.pulumi/bin/pulumi version"
+            }
+        }
+        stage ("Checkout Pulumi Program From GitHub") {
+            steps {
+                git url: "git@github.com:danfhernandez/example-jenkins-app.git",
+                    // Set your credentials id value here.
+                    // See https://jenkins.io/doc/book/using/using-credentials/#adding-new-global-credentials
+                    credentialsId: "jenkins-key",
+                    // You could define a new stage that specifically runs for, say, feature/* branches
+                    // and run only "pulumi preview" for those.
+                    branch: "master"
+            }
+        }
+        
+        stage ("Install Dependencies") {
+            steps {
+                nodejs(nodeJSInstallationName: "12.10.0") {
+                    withEnv(["PATH+PULUMI=$HOME/.pulumi/bin"]) {
+                        sh "npm install"
+                    }
+                }
+            }
+        }
+        
+        stage ("Pulumi Select Prod Stack") {
+            steps {
+                // The value "node 8.9.4" is the configuration name in our Global Tool Configuration setup for node.
+                // You should use the name that you used when you added the installation on that page.
+                nodejs(nodeJSInstallationName: "12.10.0") {
+                    withEnv(["PATH+PULUMI=$HOME/.pulumi/bin"]) {
+                        sh "pulumi stack select ${PULUMI_STACK}"
+                    }
+                }
+            }
+        }
+        stage ("Run Tests") {
+            steps {
+                sh "echo 'run security tests'" // Reduce chance of attack by checking for security vuln in code
+                sh "echo 'run policy tests'" // Limit risk by enforcing boundries before deployment
+                sh "echo 'run linting tests'" // Improve and maintain code quality
+                sh "echo 'run unit tests'" // Quickly know if infrastructure works as expected  
+            }
+        }
+        stage ("Pulumi Preview") {
+            steps {
+                nodejs(nodeJSInstallationName: "12.10.0") {
+                    withEnv(["PATH+PULUMI=$HOME/.pulumi/bin"]) {
+                        sh "pulumi preview"
+                    }
+                }
+            }
+        }
+        stage ("Approve") {
+            steps {
+                input "Approve?"
+            }
+        }
+        stage ("Pulumi Up") {
+            steps {
+                // The value "node 8.9.4" is the configuration name in our Global Tool Configuration setup for node.
+                // You should use the name that you used when you added the installation on that page.
+                nodejs(nodeJSInstallationName: "12.10.0") {
+                    withEnv(["PATH+PULUMI=$HOME/.pulumi/bin"]) {
+                        sh "pulumi up --yes --skip-preview"
+                    }
+                }
+            }
+        }
+    }
+}
+        
